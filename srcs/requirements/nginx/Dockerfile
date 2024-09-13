@@ -1,21 +1,26 @@
-#Start from a debian image base
+# Utilise Debian Buster comme base
 FROM debian:bullseye
 
-#Update and Install package
-RUN apt-get update
-RUN apt-get install -y nginx openssl
+# Installe NGINX
+RUN apt-get update && \
+    apt-get install -y apt-utils nginx openssl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-#nginx SSL
-RUN mkdir /etc/nginx/ssl
+# Configure NGINX pour utiliser TLSv1.2 ou TLSv1.3 uniquement
+RUN mkdir -p /etc/nginx/ssl && \
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /etc/nginx/ssl/nginx.key -out /etc/nginx/ssl/nginx.crt \
+    -subj "/C=US/ST=NY/L=Paris/O=42/CN=jralph.42.fr/UID=jralph"
 
-RUN openssl req -x509 -nodes -days 365 \
-		-out /etc/nginx/ssl/jralph.crt \
-		-keyout /etc/nginx/ssl/jralph.key \
-		-subj "/C=FR/ST=Paris/L=Paris/O=42/OU=jralph/CN=jralph/"
+# Supprime la configuration par défaut et ajoute la vôtre
+RUN rm /etc/nginx/sites-enabled/default
+COPY conf/nginx.conf /etc/nginx/sites-available/default
+RUN ln -s /etc/nginx/sites-available/default /etc/nginx/sites-enabled/
+RUN chmod 755 /var/www/html
+RUN chown -R www-data:www-data /var/www/html
 
-COPY conf/nginx.conf /etc/nginx/nginx.conf
-
+# Expose le port 443 pour HTTPS
 EXPOSE 443
 
-#Start NGINX
 CMD ["nginx", "-g", "daemon off;"]

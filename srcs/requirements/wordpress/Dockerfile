@@ -1,29 +1,43 @@
+# Utilise Debian Buster comme base
 FROM debian:bullseye
 
-# Update and Install packages
-RUN apt-get update -y
-RUN apt-get install -y wget php php-cgi php-mysql php-fpm php-pdo php-gd php-cli php-mbstring
+# Met à jour les paquets et installe les dépendances nécessaires
+RUN apt-get update && \
+    apt-get install -y \
+    apt-utils \
+    curl \
+    php-fpm \
+    php-mysql \
+    php-curl \
+    php-gd \
+    php-mbstring \
+    php-xml \
+    php-xmlrpc \
+    mariadb-client \
+    less \
+    vim \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# Download wordpress
-RUN wget http://wordpress.org/wordpress-6.1.1.tar.gz -P /var/www/html && \
-	tar -xvf /var/www/html/wordpress-6.1.1.tar.gz -C /var/www/html && \
-	rm -rf /var/www/html/wordpress-6.1.1.tar.gz && \
-	chown -R www-data:www-data /var/www/* && \
-	chmod -R 755 /var/www/*
+# Crée le dossier nécessaire pour le socket de PHP-FPM
+RUN mkdir -p /run/php
 
-# Install wp_cli command
-RUN wget https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar && \
-	chmod +x wp-cli.phar && \
-	mv wp-cli.phar /usr/local/bin/wp
+# Crée le répertoire de destination pour WordPress
+RUN mkdir -p /var/www/html
 
-# Copy configurations and script
-COPY ./conf/www.conf /etc/php/7.3/fpm/pool.d/
-COPY ./conf/script.sh ./
+# Télécharge et installe WP-CLI
+RUN curl -o /usr/local/bin/wp https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar \
+    && chmod +x /usr/local/bin/wp
 
-# Give rights to execute script and create temporary folder for PHP-FPM's socket files.
-RUN chmod +x ./script.sh && mkdir -p /run/php
+# Copie le script d'entrée et le rend exécutable
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-# Expose port 9000 for php-fpm
+# Expose le port 9000 pour PHP-FPM
 EXPOSE 9000
 
-ENTRYPOINT ["sh", "./script.sh"]
+# Utilise le script d'entrée personnalisé
+ENTRYPOINT ["/entrypoint.sh"]
+
+CMD ["php-fpm7.4", "-F"]
+
